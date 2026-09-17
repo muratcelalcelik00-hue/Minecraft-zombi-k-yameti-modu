@@ -5,6 +5,7 @@ scoreboard players add #t ut 1
 
 execute if score #t ut matches 1 run function undying_test:setup
 execute if score #t ut matches 20 run function undying_test:spawn
+execute if score #t ut matches 40 run function undying_test:check_spawn
 execute if score #t ut matches 60 run function undying_test:check_attrs
 execute if score #t ut matches 100 run function undying_test:boom
 execute if score #t ut matches 400 run function undying_test:check_sense
