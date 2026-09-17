@@ -76,7 +76,8 @@ jobs:
             exit 1
           fi
 
-          for check in speed-modifier base-value-untouched attack-modifier \
+          for check in subject-a-present subject-b-present subject-v-present \
+                       speed-modifier base-value-untouched attack-modifier \
                        follow-range-modifier knockback-modifier sense-investigate \
                        alive-in-daylight no-sun-damage infection-applied \
                        infection-drains-health; do

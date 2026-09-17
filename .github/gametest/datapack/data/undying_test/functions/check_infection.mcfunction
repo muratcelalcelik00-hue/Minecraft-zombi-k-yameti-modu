@@ -8,4 +8,3 @@ execute unless score #vhp ut matches 1500..1999 run say UNDYING-TEST FAIL infect
 
 execute if score #vhp ut matches ..0 run say UNDYING-TEST INFO villager-health-unreadable
 execute if score #vhp ut matches 2000.. run say UNDYING-TEST INFO villager-health-full
-execute if entity @e[tag=ut_c] run say UNDYING-TEST INFO control-cow-still-present
