@@ -1,0 +1,2 @@
+say UNDYING-TEST END
+stop

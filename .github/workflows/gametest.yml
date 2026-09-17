@@ -1,0 +1,109 @@
+name: In-game test
+
+on:
+  push:
+    branches: [main, 'claude/**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gametest-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gametest:
+    name: Dedicated server, Forge 1.20.1
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # The run directory has to exist before ForgeGradle starts the server: the
+      # EULA, a flat world with nothing in it, and the datapack that drives the
+      # test are all read on boot.
+      - name: Prepare server run directory
+        run: |
+          mkdir -p run/world/datapacks/undying_test
+          echo "eula=true" > run/eula.txt
+          cp .github/gametest/server.properties run/server.properties
+          cp -r .github/gametest/datapack/. run/world/datapacks/undying_test/
+          find run -type f | sort
+
+      # The datapack stops the server when the last check has run. The timeout is
+      # only a backstop for a server that never gets there; the log decides.
+      - name: Boot the server with the mod
+        run: |
+          set +e
+          timeout 900 ./gradlew runServer --no-daemon --stacktrace 2>&1 | tee server.log
+          echo "runServer pipeline exit: ${PIPESTATUS[0]}"
+          exit 0
+
+      - name: Check the mod loaded
+        run: |
+          test -f run/config/undying-common.toml \
+            || { echo "::error::the mod never registered its config"; exit 1; }
+          grep -q "pathingBudgetPerTick" run/config/undying-common.toml \
+            || { echo "::error::generated config is missing mod keys"; exit 1; }
+          echo "Generated config:"
+          cat run/config/undying-common.toml
+
+      - name: Assert in-game results
+        run: |
+          echo "--- test output ---"
+          grep "UNDYING-TEST" server.log || true
+          echo "-------------------"
+
+          grep -q "UNDYING-TEST END" server.log \
+            || { echo "::error::the test never reached the end — the server died or hung"; exit 1; }
+
+          if grep -q "UNDYING-TEST FAIL" server.log; then
+            echo "::error::in-game assertions failed:"
+            grep "UNDYING-TEST FAIL" server.log
+            exit 1
+          fi
+
+          for check in speed-modifier base-value-untouched attack-modifier \
+                       follow-range-modifier knockback-modifier sense-investigate \
+                       alive-in-daylight no-sun-damage infection-applied \
+                       infection-drains-health; do
+            grep -q "UNDYING-TEST PASS $check" server.log \
+              || { echo "::error::missing result for $check"; exit 1; }
+          done
+
+          echo "All in-game checks passed."
+
+      - name: Report server-side errors
+        if: always()
+        run: |
+          if grep -qE "Exception in server tick loop|Failed to start the minecraft server|Encountered an unexpected exception" server.log; then
+            echo "::error::the server logged a fatal error:"
+            grep -nE -A 20 "Exception in server tick loop|Failed to start the minecraft server|Encountered an unexpected exception" server.log | head -60
+            exit 1
+          fi
+          echo "No fatal server errors logged."
+
+      - name: Upload server log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-log
+          path: |
+            server.log
+            run/logs/**
+            run/config/**
+          if-no-files-found: warn
+          retention-days: 14
