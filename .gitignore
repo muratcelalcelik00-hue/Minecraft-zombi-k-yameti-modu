@@ -1,0 +1,19 @@
+# Gradle
+.gradle/
+build/
+run/
+
+# ForgeGradle
+/forge*changelog.txt
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+bin/
+out/
+.vscode/
